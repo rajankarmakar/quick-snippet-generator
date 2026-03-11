@@ -22,7 +22,6 @@ function runSilent(cmd) {
 function generateChangelog(version) {
   const changelogPath = "CHANGELOG.md";
 
-  // Get last tag to know commit range
   let lastTag = "";
   try {
     lastTag = runSilent("git describe --tags --abbrev=0");
@@ -31,11 +30,9 @@ function generateChangelog(version) {
   }
 
   const range = lastTag ? `${lastTag}..HEAD` : "HEAD";
-  const logCmd = `git log ${range} --pretty=format:"%s|%h" --no-merges`;
-
-  let commits;
+  let commits = "";
   try {
-    commits = runSilent(logCmd);
+    commits = runSilent(`git log ${range} --pretty=format:"%s|%h" --no-merges`);
   } catch {
     commits = "";
   }
@@ -43,19 +40,20 @@ function generateChangelog(version) {
   const lines = commits ? commits.split("\n").filter(Boolean) : [];
 
   const sections = {
-    feat:     { title: "### 🚀 Features",     items: [] },
-    fix:      { title: "### 🐛 Bug Fixes",     items: [] },
-    perf:     { title: "### ⚡ Performance",   items: [] },
-    refactor: { title: "### ♻️  Refactoring",  items: [] },
-    docs:     { title: "### 📝 Documentation", items: [] },
-    chore:    { title: "### 🔧 Chores",        items: [] },
-    other:    { title: "### 📦 Other",         items: [] },
+    feat:     { title: "### 🚀 Features",      items: [] },
+    fix:      { title: "### 🐛 Bug Fixes",      items: [] },
+    perf:     { title: "### ⚡ Performance",    items: [] },
+    refactor: { title: "### ♻️  Refactoring",   items: [] },
+    docs:     { title: "### 📝 Documentation",  items: [] },
+    chore:    { title: "### 🔧 Chores",         items: [] },
+    other:    { title: "### 📦 Other",          items: [] },
   };
+
+  const repoUrl = "https://github.com/rajankarmakar/quick-snippet-generator";
 
   for (const line of lines) {
     const [message, hash] = line.split("|");
     const match = message.match(/^(\w+)(\(.+?\))?!?:\s*(.+)/);
-    const repoUrl = "https://github.com/rajankarmakar/quick-snippet-generator";
     const shortLink = `[\`${hash}\`](${repoUrl}/commit/${hash})`;
 
     if (match) {
@@ -63,52 +61,40 @@ function generateChangelog(version) {
       const scope = match[2] ? match[2].replace(/[()]/g, "") + ": " : "";
       const desc = match[3];
       const entry = `- ${scope}${desc} (${shortLink})`;
-      if (sections[type]) {
-        sections[type].items.push(entry);
-      } else {
-        sections.other.items.push(entry);
-      }
+      (sections[type] ?? sections.other).items.push(entry);
     } else {
       sections.other.items.push(`- ${message} (${shortLink})`);
     }
   }
 
   const date = new Date().toISOString().split("T")[0];
-  const repoUrl = "https://github.com/rajankarmakar/quick-snippet-generator";
   let block = `## [${version}](${repoUrl}/releases/tag/v${version}) — ${date}\n\n`;
 
   for (const key of Object.keys(sections)) {
     if (sections[key].items.length > 0) {
-      block += `${sections[key].title}\n\n`;
-      block += sections[key].items.join("\n") + "\n\n";
+      block += `${sections[key].title}\n\n${sections[key].items.join("\n")}\n\n`;
     }
   }
 
-  if (lines.length === 0) {
-    block += "_No changes logged._\n\n";
-  }
+  if (lines.length === 0) block += "_No changes logged._\n\n";
 
-  // Prepend new block to existing changelog
   const existing = fs.existsSync(changelogPath)
     ? fs.readFileSync(changelogPath, "utf8")
     : "";
 
-  const header = existing.startsWith("# Changelog")
-    ? ""
-    : "# Changelog\n\nAll notable changes to this project will be documented here.\n\n";
+  const hasHeader = existing.startsWith("# Changelog");
+  const header = "# Changelog\n\nAll notable changes to this project will be documented here.\n\n";
+  const body = hasHeader
+    ? existing.replace("# Changelog\n", `# Changelog\n\n${block}`)
+    : header + block + existing;
 
-  const fullContent = header + (existing.startsWith("# Changelog")
-    ? existing.replace("# Changelog\n", "# Changelog\n\n" + block)
-    : "# Changelog\n\nAll notable changes to this project will be documented here.\n\n" + block + existing);
-
-  fs.writeFileSync(changelogPath, fullContent);
+  fs.writeFileSync(changelogPath, body);
   console.log("✅ CHANGELOG.md updated");
-
-  return block; // used as GitHub release notes
+  return block;
 }
 
 async function main() {
-  // 1. Clean working tree check
+  // 1. Clean working tree
   const status = runSilent("git status --porcelain");
   if (status) {
     console.error("❌ Working tree is dirty. Commit or stash changes first.");
@@ -128,53 +114,26 @@ async function main() {
   // 4. Bump version
   run(`npm version ${bumpType} --no-git-tag-version`);
 
-  // 5. Read new version
   const pkg = JSON.parse(fs.readFileSync("package.json", "utf8"));
   const version = pkg.version;
   const tag = `v${version}`;
-  console.log(`\n📦 Releasing ${tag}`);
+  console.log(`\n📦 Preparing release ${tag}`);
 
-  // 6. Generate changelog from git log
-  const releaseNotes = generateChangelog(version);
+  // 5. Generate changelog
+  generateChangelog(version);
 
-  // 7. Write temp release notes for gh CLI
-  const notesFile = ".release-notes.md";
-  fs.writeFileSync(notesFile, releaseNotes);
-
-  // 8. Commit
+  // 6. Commit changelog + version bump
   run("git add package.json CHANGELOG.md");
   run(`git commit -m "chore(release): ${tag}"`);
 
-  // 9. Tag
+  // 7. Create annotated tag
   run(`git tag -a ${tag} -m "Release ${tag}"`);
 
-  // 10. Push
+  // 8. Push commit + tag — this triggers GitHub Actions to publish
   run("git push origin main --follow-tags");
 
-  // 11. Package .vsix
-  run("npx vsce package");
-
-  const vsixFile = fs
-    .readdirSync(".")
-    .find((f) => f.endsWith(".vsix") && f.includes(version));
-
-  if (!vsixFile) {
-    console.error("❌ Could not find .vsix after packaging.");
-    process.exit(1);
-  }
-
-  // 12. GitHub release
-  run(`gh release create ${tag} ./${vsixFile} --title "Release ${tag}" --notes-file ${notesFile}`);
-
-  // 13. Publish to Marketplace
-  run("npx vsce publish");
-
-  // 14. Cleanup
-  fs.unlinkSync(notesFile);
-
-  console.log(`\n✅ Successfully released ${tag}!`);
-  console.log(`   GitHub      → https://github.com/rajankarmakar/quick-snippet-generator/releases/tag/${tag}`);
-  console.log(`   Marketplace → https://marketplace.visualstudio.com/items?itemName=RajanKarmaker.quick-snippet-generator`);
+  console.log(`\n✅ Tag ${tag} pushed — GitHub Actions will now package and publish.`);
+  console.log(`   Monitor: https://github.com/rajankarmakar/quick-snippet-generator/actions`);
 }
 
 main().catch((err) => {
