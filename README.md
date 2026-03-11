@@ -4,7 +4,7 @@
 
 ## Features
 
-- ✂️ **Right-click to save** — Select code → Right-click → *Save as User Snippet*
+- ✂️ **Right-click to save** — Select code → Right-click → _Save as User Snippet_
 - 🌐 **Language-aware** — Automatically saves to the correct snippet file (`javascript.json`, `python.json`, etc.)
 - 📝 **Guided setup** — 3-step input for name, prefix (trigger word), and description
 - 🔖 **Placeholder editor** — Visual UI to mark dynamic parts of your snippet as tab stops
@@ -22,19 +22,20 @@ Highlight any block of code in the editor.
 
 The option appears in the context menu only when code is selected.
 
-![Context menu](images/context-menu.png)
+![Context menu](images/how-to.gif)
 
 **3. Fill in the details**
 
-| Step | Field | Example |
-|------|-------|---------|
-| 1 | Name | `Async Fetch Wrapper` |
-| 2 | Prefix | `asyncfetch` |
-| 3 | Description | `Fetch with async/await and error handling` |
+| Step | Field       | Example                                     |
+| ---- | ----------- | ------------------------------------------- |
+| 1    | Name        | `Async Fetch Wrapper`                       |
+| 2    | Prefix      | `asyncfetch`                                |
+| 3    | Description | `Fetch with async/await and error handling` |
 
 **4. Add placeholders (optional)**
 
 In the visual editor, click **+ Add Placeholder** and enter:
+
 - **Text to replace** — the exact string in your code (e.g. `fetchData`)
 - **Label** — the tab stop label (e.g. `functionName`)
 
@@ -63,6 +64,7 @@ This extension has no configurable settings.
 ## Release Notes
 
 ### 1.0.0
+
 Initial release of Quick Snippet Generator.
 
 ---
