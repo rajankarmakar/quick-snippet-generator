@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.0.11](https://github.com/rajankarmakar/quick-snippet-generator/releases/tag/v1.0.11) — 2026-03-11
+
+### 🐛 Bug Fixes
+
+- windows issue ([`f78139f`](https://github.com/rajankarmakar/quick-snippet-generator/commit/f78139f))
+
+
 ## [1.0.10](https://github.com/rajankarmakar/quick-snippet-generator/releases/tag/v1.0.10) — 2026-03-11
 
 ### 🐛 Bug Fixes
