@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.0.8](https://github.com/rajankarmakar/quick-snippet-generator/releases/tag/v1.0.8) — 2026-03-11
+
+### 📦 Other
+
+- Fix release ([`c978f54`](https://github.com/rajankarmakar/quick-snippet-generator/commit/c978f54))
+
+
 ## [1.0.7](https://github.com/rajankarmakar/quick-snippet-generator/releases/tag/v1.0.7) — 2026-03-11
 
 ### 🐛 Bug Fixes
