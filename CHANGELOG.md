@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.0.9](https://github.com/rajankarmakar/quick-snippet-generator/releases/tag/v1.0.9) — 2026-03-11
+
+### 🐛 Bug Fixes
+
+- add contents write permission for GitHub releases ([`55e633a`](https://github.com/rajankarmakar/quick-snippet-generator/commit/55e633a))
+- add contents write permission for GitHub releases ([`7825457`](https://github.com/rajankarmakar/quick-snippet-generator/commit/7825457))
+
+
 ## [1.0.8](https://github.com/rajankarmakar/quick-snippet-generator/releases/tag/v1.0.8) — 2026-03-11
 
 ### 📦 Other

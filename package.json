@@ -2,7 +2,7 @@
     "name": "quick-snippet-generator",
     "displayName": "Quick Snippet Generator",
     "description": "Save selected code as reusable user snippets with custom name, prefix, description, and placeholders — right from the context menu.",
-    "version": "1.0.8",
+    "version": "1.0.9",
     "publisher": "RajanKarmaker",
     "author": {
         "name": "Rajan Karmaker"
