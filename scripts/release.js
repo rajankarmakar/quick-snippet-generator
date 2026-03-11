@@ -123,7 +123,7 @@ async function main() {
   generateChangelog(version);
 
   // 6. Commit changelog + version bump
-  run("git add package.json CHANGELOG.md");
+  run("git add package.json package-lock.json CHANGELOG.md");
   run(`git commit -m "chore(release): ${tag}"`);
 
   // 7. Create annotated tag

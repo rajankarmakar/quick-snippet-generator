@@ -214,3 +214,45 @@ New feature release
 
 Breaking change release
 `node scripts/release.js major`
+
+# Your daily workflow
+
+`
+
+# 1. Do your work, then stage and commit with conventional commit messages
+
+git add .
+git commit -m "feat: add multi-cursor snippet support"
+git commit -m "fix: resolve snippet overwrite bug"
+git commit -m "docs: update README with examples"
+
+# 2. Push your work commits to main
+
+git push origin main
+
+# 3. When ready to release, run ONE command
+
+node scripts/release.js patch # bug fixes
+node scripts/release.js minor # new features
+node scripts/release.js major # breaking changes
+
+```
+
+That's it. The release script handles everything after step 3.
+
+---
+
+## What commit messages map to what changelog sections
+
+| Your commit | Appears in changelog as |
+|---|---|
+| `feat: ...` | 🚀 Features |
+| `fix: ...` | 🐛 Bug Fixes |
+| `perf: ...` | ⚡ Performance |
+| `refactor: ...` | ♻️ Refactoring |
+| `docs: ...` | 📝 Documentation |
+| `chore: ...` | 🔧 Chores |
+| anything else | 📦 Other |
+
+---
+```
