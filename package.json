@@ -70,8 +70,6 @@
     },
     "devDependencies": {
         "@vscode/vsce": "^2.32.0",
-        "conventional-changelog": "^7.2.0",
-        "conventional-changelog-angular": "^8.3.0",
         "eslint": "^8.50.0"
     }
 }
