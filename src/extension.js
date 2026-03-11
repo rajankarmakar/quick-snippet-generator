@@ -39,9 +39,12 @@ const LANGUAGE_MAP = {
 
 // ─── File helpers ─────────────────────────────────────────────────────────────
 
+// FIX 1: Added USERPROFILE fallback for Windows portable/Insiders installs
 function getSnippetsDir() {
   if (process.platform === 'win32') {
-    return path.join(process.env.APPDATA || os.homedir(), 'Code', 'User', 'snippets');
+    const base = process.env.APPDATA
+      || path.join(os.homedir(), 'AppData', 'Roaming');
+    return path.join(base, 'Code', 'User', 'snippets');
   }
   if (process.platform === 'darwin') {
     return path.join(os.homedir(), 'Library', 'Application Support', 'Code', 'User', 'snippets');
@@ -54,10 +57,13 @@ function getSnippetFilePath(languageId) {
   return path.join(getSnippetsDir(), name + '.json');
 }
 
+// FIX 2: Normalize \r\n and \r line endings before JSON parsing
 function readSnippets(filePath) {
   try {
     if (fs.existsSync(filePath)) {
-      const raw = fs.readFileSync(filePath, 'utf8');
+      const raw = fs.readFileSync(filePath, 'utf8')
+        .replace(/\r\n/g, '\n')
+        .replace(/\r/g, '\n');
       const clean = raw
         .replace(/\/\/[^\n]*/g, '')
         .replace(/\/\*[\s\S]*?\*\//g, '');
@@ -120,13 +126,6 @@ async function collectSnippetInfo() {
 }
 
 // ─── Webview HTML ─────────────────────────────────────────────────────────────
-// New placeholder UX:
-//   - Code shown in a contenteditable div
-//   - User clicks to place cursor inside the code
-//   - User types an optional label, clicks "+ Add Placeholder at Cursor"
-//   - A coloured chip is inserted at cursor position inline
-//   - Each chip has an ✕ button to delete it (restores the word, renumbers tabs)
-//   - buildBody() walks the DOM to produce the final snippet body array
 
 function buildWebviewHtml(selectedText, snippetInfo) {
 
@@ -138,8 +137,6 @@ function buildWebviewHtml(selectedText, snippetInfo) {
       .replace(/"/g, '&quot;')
       .replace(/'/g, '&#39;');
   }
-
-  const jsTextLiteral = JSON.stringify(selectedText);
 
   const css = [
     '* { box-sizing: border-box; margin: 0; padding: 0; }',
@@ -213,7 +210,6 @@ function buildWebviewHtml(selectedText, snippetInfo) {
     '  var statusMsg = document.getElementById("statusMsg");',
     '  var savedRange = null;',
     '',
-    // Track cursor position whenever user interacts with the editor
     '  function saveRange() {',
     '    var sel = window.getSelection();',
     '    if (sel && sel.rangeCount > 0) {',
@@ -226,10 +222,8 @@ function buildWebviewHtml(selectedText, snippetInfo) {
     '  editor.addEventListener("mouseup", saveRange);',
     '  editor.addEventListener("keyup",   saveRange);',
     '  editor.addEventListener("click",   saveRange);',
-    // Save range before label input steals focus
     '  labelIn.addEventListener("mousedown", function () { saveRange(); });',
     '',
-    // Renumber all chips sequentially after any add/remove
     '  function renumberChips() {',
     '    var chips = editor.querySelectorAll(".ph-chip");',
     '    for (var i = 0; i < chips.length; i++) {',
@@ -239,7 +233,6 @@ function buildWebviewHtml(selectedText, snippetInfo) {
     '    updatePreview();',
     '  }',
     '',
-    // Create a placeholder chip element
     '  function makeChip(label) {',
     '    var chip = document.createElement("span");',
     '    chip.className       = "ph-chip";',
@@ -266,7 +259,6 @@ function buildWebviewHtml(selectedText, snippetInfo) {
     '    return chip;',
     '  }',
     '',
-    // Insert chip at saved cursor, or append at end
     '  document.getElementById("addBtn").addEventListener("click", function () {',
     '    var label = labelIn.value.trim() || "value";',
     '    var chip  = makeChip(label);',
@@ -289,13 +281,13 @@ function buildWebviewHtml(selectedText, snippetInfo) {
     '    editor.focus();',
     '  });',
     '',
-    // Walk the editor DOM to produce the snippet body array
+    // FIX 4: Normalize \r\n in text nodes, prevent duplicate newlines from DIV/P
     '  function buildBody() {',
     '    var result  = "";',
     '    var chipIdx = 0;',
     '    function walk(node) {',
     '      if (node.nodeType === 3) {',
-    '        result += node.textContent;',
+    '        result += node.textContent.replace(/\\r\\n/g, "\\n").replace(/\\r/g, "\\n");',
     '      } else if (node.nodeType === 1) {',
     '        if (node.classList && node.classList.contains("ph-chip")) {',
     '          chipIdx++;',
@@ -304,7 +296,11 @@ function buildWebviewHtml(selectedText, snippetInfo) {
     '          result += "\\n";',
     '        } else {',
     '          for (var i = 0; i < node.childNodes.length; i++) { walk(node.childNodes[i]); }',
-    '          if (node.nodeName === "DIV" || node.nodeName === "P") { result += "\\n"; }',
+    '          if (node.nodeName === "DIV" || node.nodeName === "P") {',
+    '            if (result.length > 0 && result[result.length - 1] !== "\\n") {',
+    '              result += "\\n";',
+    '            }',
+    '          }',
     '        }',
     '      }',
     '    }',
@@ -382,13 +378,6 @@ function buildWebviewHtml(selectedText, snippetInfo) {
 }
 
 // ─── Webview panel ────────────────────────────────────────────────────────────
-//
-// FIX: The original code called panel.dispose() then settle() inside the
-// message handler. dispose() synchronously fires onDidDispose which called
-// settle({ cancelled:true }) first — so the save result was always discarded.
-//
-// Fix: Write the file INSIDE onDidReceiveMessage (before disposing),
-// so the panel only handles UI. No more Promise-based resolve race.
 
 function showPlaceholderPanel(context, selectedText, snippetInfo, filePath, snippetData) {
   return new Promise(function (resolve) {
@@ -409,8 +398,6 @@ function showPlaceholderPanel(context, selectedText, snippetInfo, filePath, snip
         if (msg.command === 'save' && !saveHandled) {
           saveHandled = true;
 
-          // ── Write the file HERE before disposing ──────────────────────────
-          // This avoids the dispose→onDidDispose→cancelled race condition.
           try {
             var existing = readSnippets(filePath);
             existing[snippetData.name] = {
@@ -420,7 +407,6 @@ function showPlaceholderPanel(context, selectedText, snippetInfo, filePath, snip
             };
             writeSnippets(filePath, existing);
 
-            // Close panel AFTER successful write
             panel.dispose();
 
             var fileName = path.basename(filePath);
@@ -454,7 +440,6 @@ function showPlaceholderPanel(context, selectedText, snippetInfo, filePath, snip
       context.subscriptions
     );
 
-    // onDidDispose only fires if user manually closes the panel (X button)
     panel.onDidDispose(function () {
       if (!saveHandled) {
         resolve({ saved: false });
@@ -478,15 +463,17 @@ async function saveSnippetCommand(context) {
     return;
   }
 
-  const selectedText = editor.document.getText(selection);
-  const languageId   = editor.document.languageId;
-  const filePath     = getSnippetFilePath(languageId);
+  // FIX 3: Normalize line endings BEFORE passing to webview
+  const selectedText = editor.document.getText(selection)
+    .replace(/\r\n/g, '\n')
+    .replace(/\r/g, '\n');
 
-  // Step 1-3: collect name, prefix, description
+  const languageId = editor.document.languageId;
+  const filePath   = getSnippetFilePath(languageId);
+
   const info = await collectSnippetInfo();
   if (!info) { return; }
 
-  // Check for duplicate before opening webview
   const existing = readSnippets(filePath);
   if (existing[info.name]) {
     const choice = await vscode.window.showWarningMessage(
@@ -497,7 +484,6 @@ async function saveSnippetCommand(context) {
     if (choice !== 'Overwrite') { return; }
   }
 
-  // Step 4: open webview — file writing now happens inside the panel handler
   await showPlaceholderPanel(context, selectedText, info, filePath, info);
 }
 
