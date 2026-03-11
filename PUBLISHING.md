@@ -19,6 +19,7 @@ npm install -g @vscode/vsce
 ```
 
 Verify it works:
+
 ```bash
 vsce --version
 ```
@@ -31,10 +32,10 @@ vsce --version
 2. Click your **profile icon** (top right) → **Personal access tokens**
 3. Click **+ New Token**
 4. Configure:
-   - **Name**: `vsce-publish` (or anything)
-   - **Organization**: `All accessible organizations`
-   - **Expiration**: 1 year recommended
-   - **Scopes**: Click **Custom defined** → check **Marketplace → Manage**
+    - **Name**: `vsce-publish` (or anything)
+    - **Organization**: `All accessible organizations`
+    - **Expiration**: 1 year recommended
+    - **Scopes**: Click **Custom defined** → check **Marketplace → Manage**
 5. Click **Create**
 6. **Copy the token immediately** — you cannot view it again
 
@@ -46,8 +47,8 @@ vsce --version
 2. Sign in with the same Microsoft account
 3. Click **Create publisher**
 4. Fill in:
-   - **Publisher ID**: e.g. `yourname-dev` (lowercase, hyphens ok, no spaces) — this is permanent
-   - **Display Name**: e.g. `Your Name`
+    - **Publisher ID**: e.g. `yourname-dev` (lowercase, hyphens ok, no spaces) — this is permanent
+    - **Display Name**: e.g. `Your Name`
 5. Click **Create**
 
 ---
@@ -108,6 +109,7 @@ vsce ls
 ```
 
 Make sure `node_modules` is NOT listed. Only these should appear:
+
 ```
 images/icon.png
 src/extension.js
@@ -128,6 +130,7 @@ vsce package
 This creates `quick-snippet-generator-1.0.0.vsix`.
 
 Test it locally before publishing:
+
 ```bash
 code --install-extension quick-snippet-generator-1.0.0.vsix
 ```
@@ -141,11 +144,13 @@ vsce publish
 ```
 
 Or combine package + publish in one step:
+
 ```bash
 vsce publish --pat YOUR_PAT_TOKEN
 ```
 
 Your extension will be live at:
+
 ```
 https://marketplace.visualstudio.com/items?itemName=yourname-dev.quick-snippet-generator
 ```
@@ -187,10 +192,14 @@ vsce unpublish yourname-dev.quick-snippet-generator
 
 ## Troubleshooting
 
-| Error | Fix |
-|-------|-----|
-| `Missing publisher name` | Add `"publisher"` field to `package.json` |
+| Error                                  | Fix                                                           |
+| -------------------------------------- | ------------------------------------------------------------- |
+| `Missing publisher name`               | Add `"publisher"` field to `package.json`                     |
 | `The Personal Access Token is invalid` | Re-generate PAT, ensure Marketplace → Manage scope is checked |
-| `Extension already exists` | Bump version in `package.json` before re-publishing |
-| `Icon not found` | Ensure `images/icon.png` exists and is 128×128 |
-| `ECONNREFUSED` | Check internet connection / VPN |
+| `Extension already exists`             | Bump version in `package.json` before re-publishing           |
+| `Icon not found`                       | Ensure `images/icon.png` exists and is 128×128                |
+| `ECONNREFUSED`                         | Check internet connection / VPN                               |
+
+# Commit example
+
+![alt text](images/commit-example.jpg)
