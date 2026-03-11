@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.0.3](https://github.com/rajankarmakar/quick-snippet-generator/releases/tag/v1.0.3) — 2026-03-11
+
+### 🔧 Chores
+
+- release.js file ([`7241d58`](https://github.com/rajankarmakar/quick-snippet-generator/commit/7241d58))
+
+
 ## [1.0.2](https://github.com/rajankarmakar/quick-snippet-generator/releases/tag/v1.0.2) — 2026-03-11
 
 ### 📝 Documentation
