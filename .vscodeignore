@@ -1,0 +1,43 @@
+# Dependencies — never include in the package
+node_modules/**
+
+# Dev & config files
+.vscode/**
+.vscode-test/**
+.eslintrc*
+.eslintignore
+.prettierrc*
+.editorconfig
+.gitattributes
+jest.config*
+webpack.config*
+tsconfig*
+rollup.config*
+esbuild*
+
+# Source control
+.git/**
+.gitignore
+
+# Test files
+test/**
+tests/**
+**/*.test.js
+**/*.spec.js
+src/**/*.test.js
+
+# Build artifacts
+out/**
+dist/**
+coverage/**
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Docs not needed in package
+.github/**
+docs/**
+
+# Package itself
+*.vsix

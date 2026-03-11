@@ -1,0 +1,69 @@
+{
+    "name": "quick-snippet-generator",
+    "displayName": "Quick Snippet Generator",
+    "description": "Save selected code as reusable user snippets with custom name, prefix, description, and placeholders — right from the context menu.",
+    "version": "1.0.0",
+    "publisher": "RajanKarmaker",
+    "author": {
+        "name": "Rajan Karmaker"
+    },
+    "license": "MIT",
+    "engines": {
+        "vscode": "^1.74.0"
+    },
+    "categories": [
+        "Snippets",
+        "Other"
+    ],
+    "keywords": [
+        "snippet",
+        "snippets",
+        "code snippet",
+        "user snippet",
+        "save snippet",
+        "snippet generator",
+        "productivity"
+    ],
+    "icon": "images/icon.png",
+    "galleryBanner": {
+        "color": "#1e1e2e",
+        "theme": "dark"
+    },
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/rajankarmakar/quick-snippet-generator"
+    },
+    "bugs": {
+        "url": "https://github.com/rajankarmakar/quick-snippet-generator/issues"
+    },
+    "homepage": "https://github.com/rajankarmakar/quick-snippet-generator#readme",
+    "activationEvents": [],
+    "main": "./src/extension.js",
+    "contributes": {
+        "commands": [
+            {
+                "command": "snippetSaver.saveSnippet",
+                "title": "Save as User Snippet",
+                "category": "Quick Snippet Generator"
+            }
+        ],
+        "menus": {
+            "editor/context": [
+                {
+                    "command": "snippetSaver.saveSnippet",
+                    "when": "editorHasSelection",
+                    "group": "9_cutcopypaste@99"
+                }
+            ]
+        }
+    },
+    "scripts": {
+        "lint": "eslint src",
+        "package": "vsce package",
+        "publish": "vsce publish"
+    },
+    "devDependencies": {
+        "@vscode/vsce": "^2.22.0",
+        "eslint": "^8.50.0"
+    }
+}
