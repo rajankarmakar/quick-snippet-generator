@@ -1,5 +1,20 @@
 # Changelog
 
+## [1.0.7](https://github.com/rajankarmakar/quick-snippet-generator/releases/tag/v1.0.7) — 2026-03-11
+
+### 🐛 Bug Fixes
+
+- upgrade CI to Node 24, update action versions ([`84cf643`](https://github.com/rajankarmakar/quick-snippet-generator/commit/84cf643))
+- pin vsce to 2.22.0 for node compatibility ([`af34a9a`](https://github.com/rajankarmakar/quick-snippet-generator/commit/af34a9a))
+- bump node version to 20 in CI ([`e14d40b`](https://github.com/rajankarmakar/quick-snippet-generator/commit/e14d40b))
+
+### 🔧 Chores
+
+- release: v1.0.6 ([`13ad7bc`](https://github.com/rajankarmakar/quick-snippet-generator/commit/13ad7bc))
+- release: v1.0.5 ([`9bfeee7`](https://github.com/rajankarmakar/quick-snippet-generator/commit/9bfeee7))
+- release: v1.0.4 ([`bcf48b6`](https://github.com/rajankarmakar/quick-snippet-generator/commit/bcf48b6))
+
+
 ## [1.0.5](https://github.com/rajankarmakar/quick-snippet-generator/releases/tag/v1.0.5) — 2026-03-11
 
 ### 🐛 Bug Fixes
