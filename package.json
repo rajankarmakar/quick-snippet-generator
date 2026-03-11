@@ -37,7 +37,9 @@
         "url": "https://github.com/rajankarmakar/quick-snippet-generator/issues"
     },
     "homepage": "https://github.com/rajankarmakar/quick-snippet-generator#readme",
-    "activationEvents": [],
+    "activationEvents": [
+        "onCommand:snippetSaver.saveSnippet"
+    ],
     "main": "./src/extension.js",
     "contributes": {
         "commands": [

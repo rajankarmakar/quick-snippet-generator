@@ -85,7 +85,7 @@ async function collectSnippetInfo() {
   const name = await vscode.window.showInputBox({
     title: 'Quick Snippet Generator (1/3) — Name',
     prompt: 'Enter a name for your snippet',
-    placeHolder: 'e.g. My Test Function',
+    placeHolder: 'e.g. My Custom Snippet',
     validateInput: function (v) {
       return (!v || !v.trim()) ? 'Name cannot be empty' : null;
     }
@@ -95,7 +95,7 @@ async function collectSnippetInfo() {
   const prefix = await vscode.window.showInputBox({
     title: 'Quick Snippet Generator (2/3) — Prefix',
     prompt: 'Enter the trigger prefix (what you type to insert the snippet)',
-    placeHolder: 'e.g. myasync',
+    placeHolder: 'e.g. mysnippet',
     value: name.trim().toLowerCase().replace(/\s+/g, '-'),
     validateInput: function (v) {
       if (!v || !v.trim()) { return 'Prefix cannot be empty'; }
@@ -108,7 +108,7 @@ async function collectSnippetInfo() {
   const description = await vscode.window.showInputBox({
     title: 'Quick Snippet Generator (3/3) — Description',
     prompt: 'Enter a short description (optional)',
-    placeHolder: 'e.g. Async arrow function with try/catch'
+    placeHolder: 'e.g. This is my custom snippet'
   });
   if (description === undefined) { return null; }
 
@@ -119,17 +119,14 @@ async function collectSnippetInfo() {
   };
 }
 
-// ─── Webview HTML builder ─────────────────────────────────────────────────────
-//
-// ROOT CAUSE OF ORIGINAL BUG:
-//   The HTML was built with a JS template literal (backtick string).
-//   The embedded <script> block also used template literals internally.
-//   Nested backticks inside a backtick string corrupt the outer string,
-//   silently breaking all the webview JS so postMessage never fired.
-//
-// FIX:
-//   Build EVERY part of the HTML and the embedded script using plain
-//   string concatenation and array.join() — zero backticks anywhere.
+// ─── Webview HTML ─────────────────────────────────────────────────────────────
+// New placeholder UX:
+//   - Code shown in a contenteditable div
+//   - User clicks to place cursor inside the code
+//   - User types an optional label, clicks "+ Add Placeholder at Cursor"
+//   - A coloured chip is inserted at cursor position inline
+//   - Each chip has an ✕ button to delete it (restores the word, renumbers tabs)
+//   - buildBody() walks the DOM to produce the final snippet body array
 
 function buildWebviewHtml(selectedText, snippetInfo) {
 
@@ -142,76 +139,179 @@ function buildWebviewHtml(selectedText, snippetInfo) {
       .replace(/'/g, '&#39;');
   }
 
-  // JSON.stringify produces a safe JS string literal (with surrounding quotes)
   const jsTextLiteral = JSON.stringify(selectedText);
 
-  // ── CSS (plain string, no backticks) ────────────────────────────────────────
   const css = [
     '* { box-sizing: border-box; margin: 0; padding: 0; }',
     'body { font-family: var(--vscode-font-family); font-size: var(--vscode-font-size);',
-    '       color: var(--vscode-foreground); background: var(--vscode-editor-background); padding: 24px; }',
+    '  color: var(--vscode-foreground); background: var(--vscode-editor-background); padding: 24px; }',
     'h1 { font-size: 18px; margin-bottom: 4px; }',
     '.subtitle { font-size: 12px; color: var(--vscode-descriptionForeground); margin-bottom: 22px; }',
     '.section { margin-bottom: 20px; }',
     'label { display: block; font-size: 11px; text-transform: uppercase; letter-spacing: 0.07em;',
-    '        color: var(--vscode-descriptionForeground); margin-bottom: 6px; }',
-    '.code-area, .preview-code {',
+    '  color: var(--vscode-descriptionForeground); margin-bottom: 6px; }',
+    '#codeEditor {',
+    '  background: var(--vscode-editor-background);',
+    '  border: 1px solid var(--vscode-input-border, #444); border-radius: 4px;',
+    '  padding: 12px; font-family: var(--vscode-editor-font-family, monospace); font-size: 12px;',
+    '  line-height: 1.8; white-space: pre-wrap; word-break: break-all;',
+    '  min-height: 48px; max-height: 220px; overflow: auto;',
+    '  color: var(--vscode-editor-foreground); outline: none; cursor: text; }',
+    '#codeEditor:focus { border-color: var(--vscode-focusBorder, #007fd4); }',
+    '.ph-chip {',
+    '  display: inline-flex; align-items: center; gap: 2px;',
+    '  background: var(--vscode-badge-background, #1f6feb);',
+    '  color: var(--vscode-badge-foreground, #fff);',
+    '  border-radius: 4px; padding: 1px 5px 1px 6px; font-size: 11px;',
+    '  font-family: var(--vscode-editor-font-family, monospace);',
+    '  user-select: none; vertical-align: middle; white-space: nowrap; line-height: 1.6; }',
+    '.ph-chip-rm {',
+    '  background: none; border: none; color: inherit; cursor: pointer;',
+    '  font-size: 11px; padding: 0 1px; opacity: 0.75; line-height: 1; }',
+    '.ph-chip-rm:hover { opacity: 1; }',
+    '.preview-code {',
     '  background: var(--vscode-editor-background);',
     '  border: 1px solid var(--vscode-input-border, #444); border-radius: 4px;',
     '  padding: 12px; font-family: var(--vscode-editor-font-family, monospace); font-size: 12px;',
     '  line-height: 1.5; white-space: pre-wrap; word-break: break-all;',
     '  max-height: 180px; overflow: auto; color: var(--vscode-editor-foreground); }',
     'input[type="text"] {',
-    '  width: 100%; background: var(--vscode-input-background);',
+    '  background: var(--vscode-input-background);',
     '  border: 1px solid var(--vscode-input-border, #444); color: var(--vscode-input-foreground);',
-    '  padding: 7px 10px; border-radius: 4px;',
+    '  padding: 5px 8px; border-radius: 4px;',
     '  font-family: var(--vscode-editor-font-family, monospace); font-size: 12px; }',
-    'input[type="text"]:focus {',
-    '  outline: 1px solid var(--vscode-focusBorder, #007fd4);',
+    'input[type="text"]:focus { outline: 1px solid var(--vscode-focusBorder, #007fd4);',
     '  border-color: var(--vscode-focusBorder, #007fd4); }',
-    '.hint { font-size: 11px; color: var(--vscode-descriptionForeground); margin-top: 6px; line-height: 1.6; }',
-    '.hint code { background: var(--vscode-textCodeBlock-background, #1e1e1e); padding: 1px 5px; border-radius: 3px; }',
-    '.ph-item { display: flex; align-items: center; gap: 8px; margin-bottom: 8px;',
-    '           background: var(--vscode-editor-inactiveSelectionBackground, #2a2d2e);',
-    '           padding: 8px 10px; border-radius: 4px; }',
-    '.ph-item input { flex: 1; }',
-    '.tab-num { font-size: 11px; color: var(--vscode-descriptionForeground); white-space: nowrap; min-width: 48px; }',
-    '.rm-btn { background: none; border: none; color: var(--vscode-errorForeground, #f66);',
-    '          cursor: pointer; font-size: 15px; line-height: 1; padding: 0 4px; }',
+    '.hint { font-size: 11px; color: var(--vscode-descriptionForeground); margin-top: 8px; line-height: 1.6; }',
+    '.toolbar { display: flex; align-items: center; gap: 8px; margin-top: 8px; flex-wrap: wrap; }',
+    '.toolbar label { text-transform: none; letter-spacing: 0; font-size: 12px; margin: 0; white-space: nowrap; }',
+    '#labelInput { width: 130px; }',
     '.add-btn { background: var(--vscode-button-secondaryBackground, #3a3d3e);',
-    '           border: 1px solid transparent; color: var(--vscode-button-secondaryForeground, #ccc);',
-    '           padding: 6px 14px; border-radius: 4px; cursor: pointer; font-size: 12px; margin-top: 6px; }',
+    '  border: 1px solid transparent; color: var(--vscode-button-secondaryForeground, #ccc);',
+    '  padding: 5px 12px; border-radius: 4px; cursor: pointer; font-size: 12px; white-space: nowrap; }',
     '.add-btn:hover { opacity: 0.85; }',
-    '.actions { display: flex; gap: 10px; margin-top: 24px; }',
+    '.actions { display: flex; gap: 10px; margin-top: 24px; align-items: center; }',
     '.btn-save { background: var(--vscode-button-background, #0078d4);',
-    '            color: var(--vscode-button-foreground, #fff); border: none;',
-    '            padding: 8px 22px; border-radius: 4px; cursor: pointer; font-size: 13px; font-weight: 600; }',
+    '  color: var(--vscode-button-foreground, #fff); border: none;',
+    '  padding: 8px 22px; border-radius: 4px; cursor: pointer; font-size: 13px; font-weight: 600; }',
     '.btn-save:hover { opacity: 0.9; }',
+    '.btn-save:disabled { opacity: 0.5; cursor: not-allowed; }',
     '.btn-cancel { background: transparent; border: 1px solid var(--vscode-input-border, #555);',
-    '              color: var(--vscode-foreground); padding: 8px 22px;',
-    '              border-radius: 4px; cursor: pointer; font-size: 13px; }'
+    '  color: var(--vscode-foreground); padding: 8px 22px;',
+    '  border-radius: 4px; cursor: pointer; font-size: 13px; }',
+    '.btn-cancel:hover { background: var(--vscode-list-hoverBackground); }',
+    '#statusMsg { font-size: 12px; margin-left: 12px; }'
   ].join('\n');
 
-  // ── Script (plain string concat, ZERO backticks) ─────────────────────────
   const script = [
     '(function () {',
-    '  var api = acquireVsCodeApi();',
-    '  var originalText = ' + jsTextLiteral + ';',
-    '  var placeholders = [];',
-    '  var listEl    = document.getElementById("phList");',
+    '  var api       = acquireVsCodeApi();',
+    '  var editor    = document.getElementById("codeEditor");',
     '  var previewEl = document.getElementById("preview");',
+    '  var saveBtn   = document.getElementById("saveBtn");',
+    '  var labelIn   = document.getElementById("labelInput");',
+    '  var statusMsg = document.getElementById("statusMsg");',
+    '  var savedRange = null;',
     '',
-    '  function buildBody() {',
-    '    var text = originalText;',
-    '    for (var i = 0; i < placeholders.length; i++) {',
-    '      var ph = placeholders[i];',
-    '      if (!ph.find || ph.find.trim() === "") { continue; }',
-    '      var label    = ph.label.trim() || ph.find.trim();',
-    '      var tabStop  = "${" + (i + 1) + ":" + label + "}";',
-    '      text = text.split(ph.find).join(tabStop);',
+    // Track cursor position whenever user interacts with the editor
+    '  function saveRange() {',
+    '    var sel = window.getSelection();',
+    '    if (sel && sel.rangeCount > 0) {',
+    '      var r = sel.getRangeAt(0);',
+    '      if (editor.contains(r.commonAncestorContainer)) {',
+    '        savedRange = r.cloneRange();',
+    '      }',
     '    }',
-    '    text = text + "${0}";',
-    '    return text.split("\\n");',
+    '  }',
+    '  editor.addEventListener("mouseup", saveRange);',
+    '  editor.addEventListener("keyup",   saveRange);',
+    '  editor.addEventListener("click",   saveRange);',
+    // Save range before label input steals focus
+    '  labelIn.addEventListener("mousedown", function () { saveRange(); });',
+    '',
+    // Renumber all chips sequentially after any add/remove
+    '  function renumberChips() {',
+    '    var chips = editor.querySelectorAll(".ph-chip");',
+    '    for (var i = 0; i < chips.length; i++) {',
+    '      var lbl = chips[i].dataset.label;',
+    '      chips[i].querySelector(".ph-text").textContent = "${" + (i + 1) + ":" + lbl + "}";',
+    '    }',
+    '    updatePreview();',
+    '  }',
+    '',
+    // Create a placeholder chip element
+    '  function makeChip(label) {',
+    '    var chip = document.createElement("span");',
+    '    chip.className       = "ph-chip";',
+    '    chip.contentEditable = "false";',
+    '    chip.dataset.label   = label;',
+    '',
+    '    var txt = document.createElement("span");',
+    '    txt.className   = "ph-text";',
+    '    txt.textContent = "${1:" + label + "}";',
+    '',
+    '    var rm = document.createElement("button");',
+    '    rm.className   = "ph-chip-rm";',
+    '    rm.textContent = "x";',
+    '    rm.title       = "Remove placeholder";',
+    '    rm.addEventListener("click", function (e) {',
+    '      e.preventDefault();',
+    '      e.stopPropagation();',
+    '      chip.parentNode.removeChild(chip);',
+    '      renumberChips();',
+    '    });',
+    '',
+    '    chip.appendChild(txt);',
+    '    chip.appendChild(rm);',
+    '    return chip;',
+    '  }',
+    '',
+    // Insert chip at saved cursor, or append at end
+    '  document.getElementById("addBtn").addEventListener("click", function () {',
+    '    var label = labelIn.value.trim() || "value";',
+    '    var chip  = makeChip(label);',
+    '',
+    '    if (savedRange) {',
+    '      var sel = window.getSelection();',
+    '      savedRange.deleteContents();',
+    '      savedRange.insertNode(chip);',
+    '      savedRange.setStartAfter(chip);',
+    '      savedRange.collapse(true);',
+    '      sel.removeAllRanges();',
+    '      sel.addRange(savedRange);',
+    '      savedRange = savedRange.cloneRange();',
+    '    } else {',
+    '      editor.appendChild(chip);',
+    '    }',
+    '',
+    '    labelIn.value = "";',
+    '    renumberChips();',
+    '    editor.focus();',
+    '  });',
+    '',
+    // Walk the editor DOM to produce the snippet body array
+    '  function buildBody() {',
+    '    var result  = "";',
+    '    var chipIdx = 0;',
+    '    function walk(node) {',
+    '      if (node.nodeType === 3) {',
+    '        result += node.textContent;',
+    '      } else if (node.nodeType === 1) {',
+    '        if (node.classList && node.classList.contains("ph-chip")) {',
+    '          chipIdx++;',
+    '          result += "${" + chipIdx + ":" + (node.dataset.label || "value") + "}";',
+    '        } else if (node.nodeName === "BR") {',
+    '          result += "\\n";',
+    '        } else {',
+    '          for (var i = 0; i < node.childNodes.length; i++) { walk(node.childNodes[i]); }',
+    '          if (node.nodeName === "DIV" || node.nodeName === "P") { result += "\\n"; }',
+    '        }',
+    '      }',
+    '    }',
+    '    for (var i = 0; i < editor.childNodes.length; i++) { walk(editor.childNodes[i]); }',
+    '    result = result.replace(/\\n+$/, "");',
+    '    result += "${0}";',
+    '    return result.split("\\n");',
     '  }',
     '',
     '  function updatePreview() {',
@@ -219,67 +319,11 @@ function buildWebviewHtml(selectedText, snippetInfo) {
     '    catch (e) { previewEl.textContent = "Preview error: " + e.message; }',
     '  }',
     '',
-    '  function renderList() {',
-    '    listEl.innerHTML = "";',
-    '    for (var i = 0; i < placeholders.length; i++) {',
-    '      var ph   = placeholders[i];',
-    '      var row  = document.createElement("div");',
-    '      row.className = "ph-item";',
+    '  editor.addEventListener("input", updatePreview);',
     '',
-    '      var span = document.createElement("span");',
-    '      span.className = "tab-num";',
-    '      span.textContent = "Tab " + (i + 1);',
-    '',
-    '      var findIn = document.createElement("input");',
-    '      findIn.type = "text";',
-    '      findIn.placeholder = "Exact text to replace";',
-    '      findIn.value = ph.find;',
-    '      findIn.dataset.idx   = i;',
-    '      findIn.dataset.field = "find";',
-    '',
-    '      var labelIn = document.createElement("input");',
-    '      labelIn.type = "text";',
-    '      labelIn.placeholder = "Label (e.g. funcName)";',
-    '      labelIn.value = ph.label;',
-    '      labelIn.dataset.idx   = i;',
-    '      labelIn.dataset.field = "label";',
-    '',
-    '      var rmBtn = document.createElement("button");',
-    '      rmBtn.className = "rm-btn";',
-    '      rmBtn.textContent = "x";',
-    '      rmBtn.dataset.idx = i;',
-    '',
-    '      row.appendChild(span);',
-    '      row.appendChild(findIn);',
-    '      row.appendChild(labelIn);',
-    '      row.appendChild(rmBtn);',
-    '      listEl.appendChild(row);',
-    '    }',
-    '    updatePreview();',
-    '  }',
-    '',
-    '  document.getElementById("addBtn").addEventListener("click", function () {',
-    '    placeholders.push({ find: "", label: "" });',
-    '    renderList();',
-    '  });',
-    '',
-    '  listEl.addEventListener("input", function (e) {',
-    '    var idx   = parseInt(e.target.dataset.idx, 10);',
-    '    var field = e.target.dataset.field;',
-    '    if (!isNaN(idx) && field) {',
-    '      placeholders[idx][field] = e.target.value;',
-    '      updatePreview();',
-    '    }',
-    '  });',
-    '',
-    '  listEl.addEventListener("click", function (e) {',
-    '    if (e.target.classList.contains("rm-btn")) {',
-    '      placeholders.splice(parseInt(e.target.dataset.idx, 10), 1);',
-    '      renderList();',
-    '    }',
-    '  });',
-    '',
-    '  document.getElementById("saveBtn").addEventListener("click", function () {',
+    '  saveBtn.addEventListener("click", function () {',
+    '    saveBtn.disabled = true;',
+    '    statusMsg.textContent = "Saving...";',
     '    api.postMessage({ command: "save", body: buildBody() });',
     '  });',
     '',
@@ -291,13 +335,12 @@ function buildWebviewHtml(selectedText, snippetInfo) {
     '})();'
   ].join('\n');
 
-  // ── Assemble HTML (plain concatenation, zero backticks) ──────────────────
   return (
     '<!DOCTYPE html>' +
     '<html lang="en"><head>' +
     '<meta charset="UTF-8"/>' +
     '<meta http-equiv="Content-Security-Policy"' +
-    '  content="default-src \'none\'; style-src \'unsafe-inline\'; script-src \'unsafe-inline\';"/>' +
+    ' content="default-src \'none\'; style-src \'unsafe-inline\'; script-src \'unsafe-inline\';"/>' +
     '<meta name="viewport" content="width=device-width,initial-scale=1.0"/>' +
     '<title>Quick Snippet Generator</title>' +
     '<style>' + css + '</style>' +
@@ -305,19 +348,23 @@ function buildWebviewHtml(selectedText, snippetInfo) {
 
     '<h1>&#9986;&#65039; Quick Snippet Generator</h1>' +
     '<p class="subtitle">' +
-      'Snippet: <strong>' + htmlEncode(snippetInfo.name) + '</strong>' +
-      ' &nbsp;|&nbsp; Prefix: <code>' + htmlEncode(snippetInfo.prefix) + '</code>' +
+    'Snippet: <strong>' + htmlEncode(snippetInfo.name) + '</strong>' +
+    ' &nbsp;|&nbsp; Prefix: <code>' + htmlEncode(snippetInfo.prefix) + '</code>' +
     '</p>' +
 
-    '<div class="section"><label>Selected Code</label>' +
-    '<div class="code-area">' + htmlEncode(selectedText) + '</div></div>' +
-
     '<div class="section">' +
-    '<label>Placeholders <span style="text-transform:none;font-weight:normal">(optional)</span></label>' +
-    '<p class="hint">Click <strong>+ Add Placeholder</strong>, type the exact text to replace' +
-    ' and a label. It becomes a tab stop: <code>${1:label}</code></p>' +
-    '<div id="phList"></div>' +
-    '<button class="add-btn" id="addBtn">+ Add Placeholder</button>' +
+    '<label>Code Editor' +
+    '<span style="text-transform:none;font-weight:normal;letter-spacing:0;margin-left:6px">' +
+    '— click to place cursor, then click the button below to insert a placeholder</span>' +
+    '</label>' +
+    '<div id="codeEditor" contenteditable="true" spellcheck="false">' + htmlEncode(selectedText) + '</div>' +
+    '<div class="toolbar">' +
+    '  <label for="labelInput">Label:</label>' +
+    '  <input type="text" id="labelInput" placeholder="e.g. funcName" />' +
+    '  <button class="add-btn" id="addBtn">+ Add Placeholder at Cursor</button>' +
+    '</div>' +
+    '<p class="hint">&#x1F4CC; Click anywhere in the code to position your cursor, type an optional label, then click the button.' +
+    ' Hit <strong>x</strong> on any chip to remove it. Tab stops are renumbered automatically.</p>' +
     '</div>' +
 
     '<div class="section"><label>Snippet Preview</label>' +
@@ -326,6 +373,7 @@ function buildWebviewHtml(selectedText, snippetInfo) {
     '<div class="actions">' +
     '<button class="btn-save" id="saveBtn">&#128190; Save Snippet</button>' +
     '<button class="btn-cancel" id="cancelBtn">Cancel</button>' +
+    '<span id="statusMsg"></span>' +
     '</div>' +
 
     '<script>' + script + '<\/script>' +
@@ -334,13 +382,16 @@ function buildWebviewHtml(selectedText, snippetInfo) {
 }
 
 // ─── Webview panel ────────────────────────────────────────────────────────────
+//
+// FIX: The original code called panel.dispose() then settle() inside the
+// message handler. dispose() synchronously fires onDidDispose which called
+// settle({ cancelled:true }) first — so the save result was always discarded.
+//
+// Fix: Write the file INSIDE onDidReceiveMessage (before disposing),
+// so the panel only handles UI. No more Promise-based resolve race.
 
-function showPlaceholderPanel(context, selectedText, snippetInfo) {
+function showPlaceholderPanel(context, selectedText, snippetInfo, filePath, snippetData) {
   return new Promise(function (resolve) {
-    var settled = false;
-    function settle(result) {
-      if (!settled) { settled = true; resolve(result); }
-    }
 
     var panel = vscode.window.createWebviewPanel(
       'quickSnippetGenerator',
@@ -351,22 +402,63 @@ function showPlaceholderPanel(context, selectedText, snippetInfo) {
 
     panel.webview.html = buildWebviewHtml(selectedText, snippetInfo);
 
+    var saveHandled = false;
+
     panel.webview.onDidReceiveMessage(
       function (msg) {
-        if (msg.command === 'save') {
-          panel.dispose();
-          settle({ body: msg.body, cancelled: false });
+        if (msg.command === 'save' && !saveHandled) {
+          saveHandled = true;
+
+          // ── Write the file HERE before disposing ──────────────────────────
+          // This avoids the dispose→onDidDispose→cancelled race condition.
+          try {
+            var existing = readSnippets(filePath);
+            existing[snippetData.name] = {
+              prefix: snippetData.prefix,
+              body: msg.body,
+              description: snippetData.description || snippetData.name
+            };
+            writeSnippets(filePath, existing);
+
+            // Close panel AFTER successful write
+            panel.dispose();
+
+            var fileName = path.basename(filePath);
+            vscode.window.showInformationMessage(
+              'Snippet "' + snippetData.name + '" saved to ' + fileName + '!',
+              'Open Snippets File'
+            ).then(function (action) {
+              if (action === 'Open Snippets File') {
+                vscode.workspace.openTextDocument(filePath).then(function (doc) {
+                  vscode.window.showTextDocument(doc);
+                });
+              }
+            });
+
+            resolve({ saved: true });
+
+          } catch (err) {
+            panel.dispose();
+            vscode.window.showErrorMessage(
+              'Quick Snippet Generator: Save failed — ' + err.message
+            );
+            resolve({ saved: false });
+          }
+
         } else if (msg.command === 'cancel') {
           panel.dispose();
-          settle({ body: null, cancelled: true });
+          resolve({ saved: false });
         }
       },
       undefined,
       context.subscriptions
     );
 
+    // onDidDispose only fires if user manually closes the panel (X button)
     panel.onDidDispose(function () {
-      settle({ body: null, cancelled: true });
+      if (!saveHandled) {
+        resolve({ saved: false });
+      }
     });
   });
 }
@@ -390,42 +482,23 @@ async function saveSnippetCommand(context) {
   const languageId   = editor.document.languageId;
   const filePath     = getSnippetFilePath(languageId);
 
+  // Step 1-3: collect name, prefix, description
   const info = await collectSnippetInfo();
   if (!info) { return; }
 
-  const result = await showPlaceholderPanel(context, selectedText, info);
-  if (result.cancelled || !result.body) { return; }
-
-  const snippets = readSnippets(filePath);
-
-  if (snippets[info.name]) {
+  // Check for duplicate before opening webview
+  const existing = readSnippets(filePath);
+  if (existing[info.name]) {
     const choice = await vscode.window.showWarningMessage(
-      'A snippet named "' + info.name + '" already exists. Overwrite?',
-      'Overwrite', 'Cancel'
+      'A snippet named "' + info.name + '" already exists. Overwrite it?',
+      'Overwrite',
+      'Cancel'
     );
     if (choice !== 'Overwrite') { return; }
   }
 
-  snippets[info.name] = {
-    prefix: info.prefix,
-    body: result.body,
-    description: info.description || info.name
-  };
-
-  try {
-    writeSnippets(filePath, snippets);
-    const fileName = path.basename(filePath);
-    const action = await vscode.window.showInformationMessage(
-      'Snippet "' + info.name + '" saved to ' + fileName + '!',
-      'Open Snippets File'
-    );
-    if (action === 'Open Snippets File') {
-      const doc = await vscode.workspace.openTextDocument(filePath);
-      vscode.window.showTextDocument(doc);
-    }
-  } catch (err) {
-    vscode.window.showErrorMessage('Quick Snippet Generator: Save failed — ' + err.message);
-  }
+  // Step 4: open webview — file writing now happens inside the panel handler
+  await showPlaceholderPanel(context, selectedText, info, filePath, info);
 }
 
 // ─── Extension entry points ───────────────────────────────────────────────────
