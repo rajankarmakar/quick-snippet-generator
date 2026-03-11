@@ -203,3 +203,14 @@ vsce unpublish yourname-dev.quick-snippet-generator
 # Commit example
 
 ![alt text](images/commit-example.jpg)
+
+# Your full release workflow (every time)
+
+Bug fix release
+`node scripts/release.js patch`
+
+New feature release  
+`node scripts/release.js minor`
+
+Breaking change release
+`node scripts/release.js major`
